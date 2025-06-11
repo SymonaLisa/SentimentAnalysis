@@ -8,11 +8,25 @@ const SENTIMENT_MODELS = {
   tertiary: 'https://api-inference.huggingface.co/models/j-hartmann/emotion-english-distilroberta-base'
 };
 
+// Google Gemini API configuration
+const GEMINI_API_KEY = 'AIzaSyA1juCGrcLm1dS5pqhi8CPlPTbhoYqxQEI';
+const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
+
 interface ApiError {
   type: 'network' | 'auth' | 'rate_limit' | 'server' | 'timeout' | 'unknown';
   message: string;
   details?: string;
   retryAfter?: number;
+}
+
+interface GeminiResponse {
+  candidates: Array<{
+    content: {
+      parts: Array<{
+        text: string;
+      }>;
+    };
+  }>;
 }
 
 // Enhanced training data patterns extracted from the provided dataset
@@ -95,6 +109,7 @@ export class SentimentAnalysisService {
   private static instance: SentimentAnalysisService;
   private apiToken: string;
   private useEnsemble: boolean = true;
+  private useGemini: boolean = true;
   private retryCount: number = 3;
   private retryDelay: number = 1000; // 1 second base delay
 
@@ -218,7 +233,7 @@ export class SentimentAnalysisService {
         case 401:
           return {
             type: 'auth',
-            message: 'Invalid API token. Please check your Hugging Face API token.',
+            message: 'Invalid API token. Please check your API token.',
             details: data?.error || 'Authentication failed'
           };
         
@@ -272,6 +287,111 @@ export class SentimentAnalysisService {
       message: error.message || 'An unexpected error occurred',
       details: error.toString()
     };
+  }
+
+  private async callGeminiAPI(text: string, attempt: number = 1): Promise<ApiResponse[]> {
+    try {
+      this.validateInput(text);
+
+      const prompt = `Analyze the sentiment of the following text and provide a detailed response in JSON format. 
+      
+Text: "${text}"
+
+Please respond with a JSON object containing:
+1. sentiment: "positive", "negative", or "neutral"
+2. confidence: a number between 0 and 1 representing confidence level
+3. reasoning: brief explanation of the sentiment classification
+4. keywords: array of key words/phrases that influenced the sentiment
+
+Format your response as valid JSON only, no additional text.`;
+
+      const response = await axios.post(
+        GEMINI_API_URL,
+        {
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.1,
+            topK: 1,
+            topP: 1,
+            maxOutputTokens: 1024,
+          },
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            }
+          ]
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          timeout: 30000, // 30 second timeout
+        }
+      );
+
+      if (response.status === 200 && response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+        const geminiText = response.data.candidates[0].content.parts[0].text;
+        
+        try {
+          // Extract JSON from the response
+          const jsonMatch = geminiText.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const geminiResult = JSON.parse(jsonMatch[0]);
+            
+            // Convert Gemini response to our format
+            const sentimentMap: Record<string, string> = {
+              'positive': 'LABEL_2',
+              'negative': 'LABEL_0',
+              'neutral': 'LABEL_1'
+            };
+            
+            const label = sentimentMap[geminiResult.sentiment.toLowerCase()] || 'LABEL_1';
+            const confidence = Math.max(0.1, Math.min(1.0, geminiResult.confidence || 0.7));
+            
+            return [
+              { label, score: confidence },
+              { label: 'LABEL_1', score: (1 - confidence) * 0.5 },
+              { label: label === 'LABEL_2' ? 'LABEL_0' : 'LABEL_2', score: (1 - confidence) * 0.5 }
+            ].sort((a, b) => b.score - a.score);
+          }
+        } catch (parseError) {
+          console.warn('Failed to parse Gemini JSON response, using fallback analysis');
+        }
+      }
+
+      throw new Error('Invalid response format from Gemini API');
+
+    } catch (error) {
+      const apiError = this.parseApiError(error);
+      
+      // Retry logic for certain error types
+      if (attempt <= this.retryCount && (apiError.type === 'network' || apiError.type === 'timeout' || apiError.type === 'server')) {
+        const delay = this.retryDelay * Math.pow(2, attempt - 1);
+        console.warn(`Gemini API call failed (attempt ${attempt}/${this.retryCount}), retrying in ${delay}ms:`, apiError.message);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.callGeminiAPI(text, attempt + 1);
+      }
+
+      console.error(`Gemini API call failed:`, apiError);
+      throw new Error(apiError.message);
+    }
   }
 
   private async callSentimentAPI(text: string, modelUrl: string, attempt: number = 1): Promise<ApiResponse[]> {
@@ -336,38 +456,53 @@ export class SentimentAnalysisService {
       this.validateInput(text);
       const processedText = this.preprocessText(text);
       
-      if (!this.apiToken || this.apiToken.trim() === '') {
-        return this.getEnhancedMockSentiment(processedText, text);
-      }
-
-      if (this.useEnsemble) {
-        // Ensemble approach using multiple models
-        const results = await Promise.allSettled([
-          this.callSentimentAPI(processedText, SENTIMENT_MODELS.primary),
-          this.callSentimentAPI(processedText, SENTIMENT_MODELS.secondary)
-        ]);
-
-        const primaryResult = results[0].status === 'fulfilled' ? results[0].value : null;
-        const secondaryResult = results[1].status === 'fulfilled' ? results[1].value : null;
-
-        if (primaryResult && secondaryResult) {
-          return this.combineEnsembleResults(primaryResult, secondaryResult);
-        } else if (primaryResult) {
-          return primaryResult;
-        } else if (secondaryResult) {
-          return this.normalizeSecondaryModelResults(secondaryResult);
-        } else {
-          // Both API calls failed, log the errors
-          const primaryError = results[0].status === 'rejected' ? results[0].reason : null;
-          const secondaryError = results[1].status === 'rejected' ? results[1].reason : null;
-          
-          console.error('All API calls failed:', { primaryError, secondaryError });
-          throw new Error('All sentiment analysis APIs are currently unavailable. Please try again later.');
+      // Try Gemini API first for enhanced accuracy
+      if (this.useGemini && GEMINI_API_KEY) {
+        try {
+          console.log('Using Gemini API for enhanced sentiment analysis');
+          const geminiResult = await this.callGeminiAPI(processedText);
+          return geminiResult;
+        } catch (geminiError) {
+          console.warn('Gemini API failed, falling back to other methods:', geminiError);
         }
-      } else {
-        // Single model approach
-        return await this.callSentimentAPI(processedText, SENTIMENT_MODELS.primary);
       }
+      
+      // Fallback to Hugging Face APIs if available
+      if (this.apiToken && this.apiToken.trim() !== '') {
+        if (this.useEnsemble) {
+          // Ensemble approach using multiple models
+          const results = await Promise.allSettled([
+            this.callSentimentAPI(processedText, SENTIMENT_MODELS.primary),
+            this.callSentimentAPI(processedText, SENTIMENT_MODELS.secondary)
+          ]);
+
+          const primaryResult = results[0].status === 'fulfilled' ? results[0].value : null;
+          const secondaryResult = results[1].status === 'fulfilled' ? results[1].value : null;
+
+          if (primaryResult && secondaryResult) {
+            return this.combineEnsembleResults(primaryResult, secondaryResult);
+          } else if (primaryResult) {
+            return primaryResult;
+          } else if (secondaryResult) {
+            return this.normalizeSecondaryModelResults(secondaryResult);
+          } else {
+            // Both API calls failed, log the errors
+            const primaryError = results[0].status === 'rejected' ? results[0].reason : null;
+            const secondaryError = results[1].status === 'rejected' ? results[1].reason : null;
+            
+            console.error('All Hugging Face API calls failed:', { primaryError, secondaryError });
+            throw new Error('All sentiment analysis APIs are currently unavailable. Using enhanced fallback analysis.');
+          }
+        } else {
+          // Single model approach
+          return await this.callSentimentAPI(processedText, SENTIMENT_MODELS.primary);
+        }
+      }
+      
+      // Final fallback to enhanced mock analysis
+      console.log('Using enhanced local sentiment analysis');
+      return this.getEnhancedMockSentiment(processedText, text);
+      
     } catch (error) {
       console.error('Sentiment analysis failed:', error);
       
@@ -398,7 +533,7 @@ export class SentimentAnalysisService {
     const errors: { index: number; error: string }[] = [];
     
     // Process in smaller batches to avoid rate limiting and improve reliability
-    const batchSize = 3;
+    const batchSize = this.useGemini ? 2 : 3; // Smaller batches for Gemini due to potential rate limits
     for (let i = 0; i < texts.length; i += batchSize) {
       const batch = texts.slice(i, i + batchSize);
       
@@ -422,7 +557,7 @@ export class SentimentAnalysisService {
         
         // Longer delay between batches for API stability
         if (i + batchSize < texts.length) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, this.useGemini ? 3000 : 2000));
         }
       } catch (error) {
         console.error(`Batch processing failed for batch starting at index ${i}:`, error);

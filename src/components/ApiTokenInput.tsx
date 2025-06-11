@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Key, Settings, Brain, Zap } from 'lucide-react';
+import { Key, Settings, Brain, Zap, Sparkles } from 'lucide-react';
 import { SentimentAnalysisService } from '../services/sentimentApi';
 
 interface ApiTokenInputProps {
@@ -50,29 +50,43 @@ export const ApiTokenInput: React.FC<ApiTokenInputProps> = ({ onTokenSet }) => {
         <h3 className="text-lg font-semibold text-gray-900">Enhanced API Configuration</h3>
       </div>
       
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 mb-4">
+      <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 mb-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Sparkles className="text-purple-600" size={16} />
+          <span className="font-medium text-purple-900">Google Gemini AI Integration</span>
+        </div>
+        <ul className="text-sm text-purple-800 space-y-1">
+          <li>• Google Gemini 1.5 Flash for superior accuracy</li>
+          <li>• Advanced context understanding and reasoning</li>
+          <li>• Multi-model ensemble analysis for best results</li>
+          <li>• Fallback to Hugging Face models when needed</li>
+          <li>• Enhanced local analysis with training data patterns</li>
+        </ul>
+      </div>
+      
+      <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg p-4 mb-4">
         <div className="flex items-center gap-2 mb-2">
           <Brain className="text-blue-600" size={16} />
           <span className="font-medium text-blue-900">Enhanced Accuracy Features</span>
         </div>
         <ul className="text-sm text-blue-800 space-y-1">
           <li>• Advanced text preprocessing with negation handling</li>
-          <li>• Ensemble analysis using multiple AI models</li>
-          <li>• Context-aware sentiment detection</li>
+          <li>• Context-aware sentiment detection with training data</li>
           <li>• Enhanced emoji and emoticon recognition</li>
           <li>• Improved keyword extraction with relevance scoring</li>
+          <li>• Strong sentiment indicators for precise classification</li>
         </ul>
       </div>
       
       <p className="text-gray-600 mb-4">
-        To use real sentiment analysis with enhanced accuracy features, provide your Hugging Face API token. 
-        The system will use ensemble methods and advanced preprocessing for superior results.
+        The system now uses Google Gemini AI for the highest accuracy sentiment analysis. 
+        You can optionally provide your Hugging Face API token for additional model ensemble analysis.
       </p>
       
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="token" className="block text-sm font-medium text-gray-700 mb-2">
-            Hugging Face API Token (Optional)
+            Hugging Face API Token (Optional - for ensemble analysis)
           </label>
           <input
             type="password"
@@ -87,31 +101,32 @@ export const ApiTokenInput: React.FC<ApiTokenInputProps> = ({ onTokenSet }) => {
           </p>
         </div>
 
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
           <div className="flex items-center gap-2 mb-2">
-            <Zap className="text-yellow-600" size={16} />
-            <span className="text-sm font-medium text-yellow-800">Enhanced Demo Mode</span>
+            <Sparkles className="text-green-600" size={16} />
+            <span className="text-sm font-medium text-green-800">Google Gemini AI Active</span>
           </div>
-          <p className="text-xs text-yellow-700">
-            Even without an API token, our enhanced demo mode provides significantly improved accuracy 
-            using advanced preprocessing, context analysis, and sophisticated pattern recognition.
+          <p className="text-xs text-green-700">
+            The system is now powered by Google Gemini 1.5 Flash for the most accurate sentiment analysis available. 
+            Advanced reasoning and context understanding provide superior results compared to traditional models.
           </p>
         </div>
         
         <div className="flex gap-3">
           <button
             type="submit"
-            className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors duration-200 font-medium flex items-center justify-center gap-2"
+            className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white py-2 px-4 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 font-medium flex items-center justify-center gap-2"
           >
-            <Brain size={16} />
-            Enable Enhanced Analysis
+            <Sparkles size={16} />
+            Enable Gemini + Ensemble
           </button>
           <button
             type="button"
             onClick={handleSkip}
-            className="flex-1 bg-gray-200 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors duration-200 font-medium"
+            className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 text-white py-2 px-4 rounded-lg hover:from-green-700 hover:to-blue-700 transition-all duration-200 font-medium flex items-center justify-center gap-2"
           >
-            Use Enhanced Demo
+            <Brain size={16} />
+            Use Gemini AI Only
           </button>
         </div>
       </form>
