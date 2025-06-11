@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { FileText, Play, BarChart3, Target, CheckCircle, XCircle, AlertCircle, TrendingUp, Database } from 'lucide-react';
-import { sentimentTestData, TestDataEntry, getTestDataByCategory, getTestDataByDifficulty, getTestDataBySource, getRandomTestSample, getBalancedTestSample, getTestDataStats } from '../data/testData';
+import { FileText, Play, BarChart3, Target, CheckCircle, XCircle, AlertCircle, TrendingUp, Database, FileCheck } from 'lucide-react';
+import { sentimentTestData, TestDataEntry, getTestDataByCategory, getTestDataByDifficulty, getTestDataBySource, getRandomTestSample, getBalancedTestSample, getTestDataStats, getPDFTestData } from '../data/testData';
 import { SentimentResult } from '../types/sentiment';
 
 interface TestDataLoaderProps {
@@ -35,6 +35,7 @@ export const TestDataLoader: React.FC<TestDataLoaderProps> = ({
   const sources = ['all', 'PDF Test Data', 'Enhanced Dataset'];
 
   const stats = getTestDataStats();
+  const pdfTestData = getPDFTestData();
 
   const getFilteredTestData = (): TestDataEntry[] => {
     let filtered = sentimentTestData;
@@ -66,6 +67,11 @@ export const TestDataLoader: React.FC<TestDataLoaderProps> = ({
     onLoadTestData(texts);
   };
 
+  const handleLoadPDFData = () => {
+    const texts = pdfTestData.map(entry => entry.text);
+    onLoadTestData(texts);
+  };
+
   const handleLoadFiltered = () => {
     const filtered = getFilteredTestData();
     const texts = filtered.map(entry => entry.text);
@@ -75,6 +81,10 @@ export const TestDataLoader: React.FC<TestDataLoaderProps> = ({
   const handleRunAccuracyTest = () => {
     const testData = getFilteredTestData().slice(0, 25); // Limit to 25 for performance
     onRunAccuracyTest(testData);
+  };
+
+  const handleRunPDFAccuracyTest = () => {
+    onRunAccuracyTest(pdfTestData);
   };
 
   const handleRunComprehensiveTest = () => {
@@ -161,6 +171,35 @@ export const TestDataLoader: React.FC<TestDataLoaderProps> = ({
         >
           {showStats ? 'Hide Stats' : 'Show Stats'}
         </button>
+      </div>
+
+      {/* PDF Test Data Highlight */}
+      <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="flex items-center gap-3 mb-3">
+          <FileCheck className="text-blue-600" size={20} />
+          <h4 className="font-medium text-blue-900">PDF Test Data Available</h4>
+        </div>
+        <p className="text-sm text-blue-800 mb-3">
+          {pdfTestData.length} test cases extracted from your PDF document with expected sentiment ratings.
+        </p>
+        <div className="flex gap-2">
+          <button
+            onClick={handleLoadPDFData}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors duration-200 text-sm font-medium"
+          >
+            <FileText size={14} />
+            Load PDF Data ({pdfTestData.length} texts)
+          </button>
+          <button
+            onClick={handleRunPDFAccuracyTest}
+            disabled={isLoading}
+            className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 transition-colors duration-200 text-sm font-medium"
+          >
+            <Target size={14} />
+            Test PDF Accuracy
+          </button>
+        </div>
       </div>
 
       {/* Dataset Statistics */}
