@@ -4,6 +4,8 @@
 
 The Sentiment Analysis App is a modern web application built with **React**, **TypeScript**, and **Tailwind CSS**, powered by **Vite**. It provides sentiment analysis and data visualization based on user input or external data sources.
 
+🔗 **Live Demo:** [https://gregarious-puffpuff-f26a21.netlify.app/](https://gregarious-puffpuff-f26a21.netlify.app/)
+
 ## Features
 
 - 🔍 Real-time sentiment analysis via a dedicated API
