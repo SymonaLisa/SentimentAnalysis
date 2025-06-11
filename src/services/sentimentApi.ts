@@ -13,7 +13,7 @@ const GEMINI_API_KEY = null;
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
 
 interface ApiError {
-  type: 'network' | 'auth' | 'rate_limit' | 'server' | 'timeout' | 'unknown';
+  type: 'network' | 'auth' | 'rate_limit' | 'server' | 'timeout' | 'unknown' | 'permission';
   message: string;
   details?: string;
   retryAfter?: number;
@@ -112,6 +112,7 @@ export class SentimentAnalysisService {
   private useGemini: boolean = true;
   private retryCount: number = 3;
   private retryDelay: number = 1000; // 1 second base delay
+  private tokenHasPermissions: boolean = true; // Track if token has proper permissions
 
   private constructor() {
     this.apiToken = '';
@@ -126,6 +127,7 @@ export class SentimentAnalysisService {
 
   public setApiToken(token: string): void {
     this.apiToken = token;
+    this.tokenHasPermissions = true; // Reset permission status when new token is set
   }
 
   private validateInput(text: string): void {
@@ -238,6 +240,15 @@ export class SentimentAnalysisService {
           };
         
         case 403:
+          // Check if it's a permission issue specifically
+          const errorMessage = data?.error || error.message || '';
+          if (errorMessage.includes('sufficient permissions') || errorMessage.includes('Inference Providers')) {
+            return {
+              type: 'permission',
+              message: 'API token lacks required permissions. The system will use enhanced local analysis instead.',
+              details: 'Token needs "read" permissions for Inference API access'
+            };
+          }
           return {
             type: 'auth',
             message: 'Access forbidden. Your API token may not have the required permissions.',
@@ -437,8 +448,16 @@ Format your response as valid JSON only, no additional text.`;
     } catch (error) {
       const apiError = this.parseApiError(error);
       
-      // Retry logic for certain error types
-      if (attempt <= this.retryCount && (apiError.type === 'network' || apiError.type === 'timeout' || apiError.type === 'server')) {
+      // If it's a permission error, mark the token as lacking permissions
+      if (apiError.type === 'permission') {
+        this.tokenHasPermissions = false;
+        console.warn('API token lacks required permissions, disabling Hugging Face API calls');
+      }
+      
+      // Retry logic for certain error types (but not permission errors)
+      if (attempt <= this.retryCount && 
+          (apiError.type === 'network' || apiError.type === 'timeout' || apiError.type === 'server') &&
+          apiError.type !== 'permission') {
         const delay = this.retryDelay * Math.pow(2, attempt - 1);
         console.warn(`API call failed (attempt ${attempt}/${this.retryCount}), retrying in ${delay}ms:`, apiError.message);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -467,8 +486,8 @@ Format your response as valid JSON only, no additional text.`;
         }
       }
       
-      // Fallback to Hugging Face APIs if available
-      if (this.apiToken && this.apiToken.trim() !== '') {
+      // Fallback to Hugging Face APIs if available and token has permissions
+      if (this.apiToken && this.apiToken.trim() !== '' && this.tokenHasPermissions) {
         if (this.useEnsemble) {
           // Ensemble approach using multiple models
           const results = await Promise.allSettled([
@@ -479,6 +498,16 @@ Format your response as valid JSON only, no additional text.`;
           const primaryResult = results[0].status === 'fulfilled' ? results[0].value : null;
           const secondaryResult = results[1].status === 'fulfilled' ? results[1].value : null;
 
+          // Check if any calls failed due to permission issues
+          const primaryError = results[0].status === 'rejected' ? results[0].reason : null;
+          const secondaryError = results[1].status === 'rejected' ? results[1].reason : null;
+          
+          if (primaryError?.message?.includes('lacks required permissions') || 
+              secondaryError?.message?.includes('lacks required permissions')) {
+            console.warn('Permission issues detected, switching to enhanced local analysis');
+            this.tokenHasPermissions = false;
+          }
+
           if (primaryResult && secondaryResult) {
             return this.combineEnsembleResults(primaryResult, secondaryResult);
           } else if (primaryResult) {
@@ -487,9 +516,6 @@ Format your response as valid JSON only, no additional text.`;
             return this.normalizeSecondaryModelResults(secondaryResult);
           } else {
             // Both API calls failed, log the errors
-            const primaryError = results[0].status === 'rejected' ? results[0].reason : null;
-            const secondaryError = results[1].status === 'rejected' ? results[1].reason : null;
-            
             console.warn('All Hugging Face API calls failed, using enhanced fallback analysis:', { primaryError, secondaryError });
           }
         } else {
@@ -497,6 +523,9 @@ Format your response as valid JSON only, no additional text.`;
           try {
             return await this.callSentimentAPI(processedText, SENTIMENT_MODELS.primary);
           } catch (error) {
+            if (error instanceof Error && error.message.includes('lacks required permissions')) {
+              this.tokenHasPermissions = false;
+            }
             console.warn('Primary Hugging Face API failed, using enhanced fallback analysis:', error);
           }
         }
@@ -1013,5 +1042,15 @@ Format your response as valid JSON only, no additional text.`;
       console.warn('Keyword extraction failed:', error);
       return [];
     }
+  }
+
+  // Public method to check if token has permissions (for UI feedback)
+  public hasValidToken(): boolean {
+    return this.apiToken && this.apiToken.trim() !== '' && this.tokenHasPermissions;
+  }
+
+  // Public method to reset token permissions (for when user updates token)
+  public resetTokenPermissions(): void {
+    this.tokenHasPermissions = true;
   }
 }
