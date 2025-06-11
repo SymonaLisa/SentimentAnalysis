@@ -253,15 +253,20 @@ export const ComparativeAnalysis: React.FC<ComparativeAnalysisProps> = ({ result
                           Math.round(group.results.reduce((sum, r) => sum + r.text.length, 0) / group.results.length)
                         } characters</li>
                         <li>• Most common keywords: {
-                          group.results
-                            .flatMap(r => r.keywords)
-                            .reduce((acc, keyword) => {
-                              acc[keyword] = (acc[keyword] || 0) + 1;
-                              return acc;
-                            }, {} as Record<string, number>)
-                            |> Object.entries
-                            |> (entries => entries.sort(([,a], [,b]) => b - a))
-                            |> (sorted => sorted.slice(0, 3).map(([keyword]) => keyword).join(', '))
+                          (() => {
+                            const keywordCounts = group.results
+                              .flatMap(r => r.keywords)
+                              .reduce((acc, keyword) => {
+                                acc[keyword] = (acc[keyword] || 0) + 1;
+                                return acc;
+                              }, {} as Record<string, number>);
+                            
+                            return Object.entries(keywordCounts)
+                              .sort(([,a], [,b]) => b - a)
+                              .slice(0, 3)
+                              .map(([keyword]) => keyword)
+                              .join(', ');
+                          })()
                         }</li>
                       </ul>
                     </div>
