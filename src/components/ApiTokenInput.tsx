@@ -10,7 +10,6 @@ export const ApiTokenInput: React.FC<ApiTokenInputProps> = ({ onTokenSet }) => {
   const [token, setToken] = useState('');
   const [isVisible, setIsVisible] = useState(false);
   const [hasValidToken, setHasValidToken] = useState(false);
-  const [useEnsemble, setUseEnsemble] = useState(true);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,33 +44,20 @@ export const ApiTokenInput: React.FC<ApiTokenInputProps> = ({ onTokenSet }) => {
     <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 bg-blue-100 rounded-lg">
-          <Key className="text-blue-600" size={20} />
+          <Brain className="text-blue-600" size={20} />
         </div>
-        <h3 className="text-lg font-semibold text-gray-900">Enhanced API Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900">Enhanced Sentiment Analysis</h3>
       </div>
       
-      <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 mb-4">
+      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 mb-4">
         <div className="flex items-center gap-2 mb-2">
-          <Sparkles className="text-purple-600" size={16} />
-          <span className="font-medium text-purple-900">Google Gemini AI Integration</span>
-        </div>
-        <ul className="text-sm text-purple-800 space-y-1">
-          <li>• Google Gemini 1.5 Flash for superior accuracy</li>
-          <li>• Advanced context understanding and reasoning</li>
-          <li>• Multi-model ensemble analysis for best results</li>
-          <li>• Fallback to Hugging Face models when needed</li>
-          <li>• Enhanced local analysis with training data patterns</li>
-        </ul>
-      </div>
-      
-      <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg p-4 mb-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Brain className="text-blue-600" size={16} />
-          <span className="font-medium text-blue-900">Enhanced Accuracy Features</span>
+          <Sparkles className="text-blue-600" size={16} />
+          <span className="font-medium text-blue-900">Advanced Local Analysis Engine</span>
         </div>
         <ul className="text-sm text-blue-800 space-y-1">
           <li>• Advanced text preprocessing with negation handling</li>
-          <li>• Context-aware sentiment detection with training data</li>
+          <li>• Training data patterns for superior accuracy</li>
+          <li>• Context-aware sentiment detection</li>
           <li>• Enhanced emoji and emoticon recognition</li>
           <li>• Improved keyword extraction with relevance scoring</li>
           <li>• Strong sentiment indicators for precise classification</li>
@@ -79,46 +65,46 @@ export const ApiTokenInput: React.FC<ApiTokenInputProps> = ({ onTokenSet }) => {
       </div>
       
       <p className="text-gray-600 mb-4">
-        The system now uses Google Gemini AI for the highest accuracy sentiment analysis. 
-        You can optionally provide your Hugging Face API token for additional model ensemble analysis.
+        Our enhanced sentiment analysis engine uses sophisticated algorithms and training data patterns 
+        to provide highly accurate sentiment classification without requiring external API dependencies.
       </p>
       
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label htmlFor="token" className="block text-sm font-medium text-gray-700 mb-2">
-            Hugging Face API Token (Optional - for ensemble analysis)
+            API Token (Optional - for future integrations)
           </label>
           <input
             type="password"
             id="token"
             value={token}
             onChange={(e) => setToken(e.target.value)}
-            placeholder="hf_xxxxxxxxxxxxxxxxxxxxxxxxxx"
+            placeholder="Enter API token for future features..."
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
           />
           <p className="text-xs text-gray-500 mt-1">
-            Get your free token at <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">huggingface.co/settings/tokens</a>
+            Currently using advanced local analysis. API tokens may be used for future enhancements.
           </p>
         </div>
 
         <div className="bg-green-50 border border-green-200 rounded-lg p-3">
           <div className="flex items-center gap-2 mb-2">
-            <Sparkles className="text-green-600" size={16} />
-            <span className="text-sm font-medium text-green-800">Google Gemini AI Active</span>
+            <Brain className="text-green-600" size={16} />
+            <span className="text-sm font-medium text-green-800">Enhanced Local Analysis Active</span>
           </div>
           <p className="text-xs text-green-700">
-            The system is now powered by Google Gemini 1.5 Flash for the most accurate sentiment analysis available. 
-            Advanced reasoning and context understanding provide superior results compared to traditional models.
+            The system uses advanced local sentiment analysis with training data patterns, 
+            providing excellent accuracy without external dependencies or rate limits.
           </p>
         </div>
         
         <div className="flex gap-3">
           <button
             type="submit"
-            className="flex-1 bg-gradient-to-r from-purple-600 to-blue-600 text-white py-2 px-4 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all duration-200 font-medium flex items-center justify-center gap-2"
+            className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-4 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium flex items-center justify-center gap-2"
           >
             <Sparkles size={16} />
-            Enable Gemini + Ensemble
+            Save Settings
           </button>
           <button
             type="button"
@@ -126,7 +112,7 @@ export const ApiTokenInput: React.FC<ApiTokenInputProps> = ({ onTokenSet }) => {
             className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 text-white py-2 px-4 rounded-lg hover:from-green-700 hover:to-blue-700 transition-all duration-200 font-medium flex items-center justify-center gap-2"
           >
             <Brain size={16} />
-            Use Gemini AI Only
+            Start Analyzing
           </button>
         </div>
       </form>

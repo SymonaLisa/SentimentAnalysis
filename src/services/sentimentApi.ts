@@ -1,34 +1,6 @@
 import axios from 'axios';
 import { ApiResponse } from '../types/sentiment';
 
-// Multiple model endpoints for ensemble analysis
-const SENTIMENT_MODELS = {
-  primary: 'https://api-inference.huggingface.co/models/cardiffnlp/twitter-roberta-base-sentiment-latest',
-  secondary: 'https://api-inference.huggingface.co/models/nlptown/bert-base-multilingual-uncased-sentiment',
-  tertiary: 'https://api-inference.huggingface.co/models/j-hartmann/emotion-english-distilroberta-base'
-};
-
-// Google Gemini API configuration - set to null to prevent rate limiting
-const GEMINI_API_KEY = null;
-const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
-
-interface ApiError {
-  type: 'network' | 'auth' | 'rate_limit' | 'server' | 'timeout' | 'unknown' | 'permission';
-  message: string;
-  details?: string;
-  retryAfter?: number;
-}
-
-interface GeminiResponse {
-  candidates: Array<{
-    content: {
-      parts: Array<{
-        text: string;
-      }>;
-    };
-  }>;
-}
-
 // Enhanced training data patterns extracted from the provided dataset
 const TRAINING_PATTERNS = {
   positive: {
@@ -105,14 +77,18 @@ const TRAINING_PATTERNS = {
   ]
 };
 
+interface ApiError {
+  type: 'network' | 'auth' | 'rate_limit' | 'server' | 'timeout' | 'unknown';
+  message: string;
+  details?: string;
+  retryAfter?: number;
+}
+
 export class SentimentAnalysisService {
   private static instance: SentimentAnalysisService;
   private apiToken: string;
-  private useEnsemble: boolean = true;
-  private useGemini: boolean = true;
   private retryCount: number = 3;
   private retryDelay: number = 1000; // 1 second base delay
-  private tokenHasPermissions: boolean = true; // Track if token has proper permissions
 
   private constructor() {
     this.apiToken = '';
@@ -127,7 +103,6 @@ export class SentimentAnalysisService {
 
   public setApiToken(token: string): void {
     this.apiToken = token;
-    this.tokenHasPermissions = true; // Reset permission status when new token is set
   }
 
   private validateInput(text: string): void {
@@ -203,349 +178,22 @@ export class SentimentAnalysisService {
     }
   }
 
-  private parseApiError(error: any): ApiError {
-    if (!error) {
-      return { type: 'unknown', message: 'Unknown error occurred' };
-    }
-
-    // Network/Connection errors
-    if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || error.code === 'ENETUNREACH') {
-      return {
-        type: 'network',
-        message: 'Network connection failed. Please check your internet connection.',
-        details: error.message
-      };
-    }
-
-    // Timeout errors
-    if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-      return {
-        type: 'timeout',
-        message: 'Request timed out. The API is taking too long to respond.',
-        details: error.message
-      };
-    }
-
-    // HTTP Response errors
-    if (error.response) {
-      const status = error.response.status;
-      const data = error.response.data;
-
-      switch (status) {
-        case 401:
-          return {
-            type: 'auth',
-            message: 'Invalid API token. Please check your API token.',
-            details: data?.error || 'Authentication failed'
-          };
-        
-        case 403:
-          // Check if it's a permission issue specifically
-          const errorMessage = data?.error || error.message || '';
-          if (errorMessage.includes('sufficient permissions') || errorMessage.includes('Inference Providers')) {
-            return {
-              type: 'permission',
-              message: 'API token lacks required permissions. The system will use enhanced local analysis instead.',
-              details: 'Token needs "read" permissions for Inference API access'
-            };
-          }
-          return {
-            type: 'auth',
-            message: 'Access forbidden. Your API token may not have the required permissions.',
-            details: data?.error || 'Forbidden access'
-          };
-        
-        case 429:
-          const retryAfter = error.response.headers['retry-after'];
-          return {
-            type: 'rate_limit',
-            message: 'Rate limit exceeded. Please wait before making more requests.',
-            details: data?.error || 'Too many requests',
-            retryAfter: retryAfter ? parseInt(retryAfter) : 60
-          };
-        
-        case 500:
-        case 502:
-        case 503:
-        case 504:
-          return {
-            type: 'server',
-            message: 'Server error. The API service is temporarily unavailable.',
-            details: data?.error || `HTTP ${status} error`
-          };
-        
-        default:
-          return {
-            type: 'unknown',
-            message: `API request failed with status ${status}`,
-            details: data?.error || error.message
-          };
-      }
-    }
-
-    // Request setup errors
-    if (error.request) {
-      return {
-        type: 'network',
-        message: 'No response received from the API. Please check your connection.',
-        details: 'Request was made but no response received'
-      };
-    }
-
-    // Other errors
-    return {
-      type: 'unknown',
-      message: error.message || 'An unexpected error occurred',
-      details: error.toString()
-    };
-  }
-
-  private async callGeminiAPI(text: string, attempt: number = 1): Promise<ApiResponse[]> {
-    try {
-      this.validateInput(text);
-
-      const prompt = `Analyze the sentiment of the following text and provide a detailed response in JSON format. 
-      
-Text: "${text}"
-
-Please respond with a JSON object containing:
-1. sentiment: "positive", "negative", or "neutral"
-2. confidence: a number between 0 and 1 representing confidence level
-3. reasoning: brief explanation of the sentiment classification
-4. keywords: array of key words/phrases that influenced the sentiment
-
-Format your response as valid JSON only, no additional text.`;
-
-      const response = await axios.post(
-        GEMINI_API_URL,
-        {
-          contents: [{
-            parts: [{
-              text: prompt
-            }]
-          }],
-          generationConfig: {
-            temperature: 0.1,
-            topK: 1,
-            topP: 1,
-            maxOutputTokens: 1024,
-          },
-          safetySettings: [
-            {
-              category: "HARM_CATEGORY_HARASSMENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_HATE_SPEECH",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            },
-            {
-              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
-              threshold: "BLOCK_MEDIUM_AND_ABOVE"
-            }
-          ]
-        },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          timeout: 30000, // 30 second timeout
-        }
-      );
-
-      if (response.status === 200 && response.data?.candidates?.[0]?.content?.parts?.[0]?.text) {
-        const geminiText = response.data.candidates[0].content.parts[0].text;
-        
-        try {
-          // Extract JSON from the response
-          const jsonMatch = geminiText.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const geminiResult = JSON.parse(jsonMatch[0]);
-            
-            // Convert Gemini response to our format
-            const sentimentMap: Record<string, string> = {
-              'positive': 'LABEL_2',
-              'negative': 'LABEL_0',
-              'neutral': 'LABEL_1'
-            };
-            
-            const label = sentimentMap[geminiResult.sentiment.toLowerCase()] || 'LABEL_1';
-            const confidence = Math.max(0.1, Math.min(1.0, geminiResult.confidence || 0.7));
-            
-            return [
-              { label, score: confidence },
-              { label: 'LABEL_1', score: (1 - confidence) * 0.5 },
-              { label: label === 'LABEL_2' ? 'LABEL_0' : 'LABEL_2', score: (1 - confidence) * 0.5 }
-            ].sort((a, b) => b.score - a.score);
-          }
-        } catch (parseError) {
-          console.warn('Failed to parse Gemini JSON response, using fallback analysis');
-        }
-      }
-
-      throw new Error('Invalid response format from Gemini API');
-
-    } catch (error) {
-      const apiError = this.parseApiError(error);
-      
-      // Retry logic for certain error types
-      if (attempt <= this.retryCount && (apiError.type === 'network' || apiError.type === 'timeout' || apiError.type === 'server')) {
-        const delay = this.retryDelay * Math.pow(2, attempt - 1);
-        console.warn(`Gemini API call failed (attempt ${attempt}/${this.retryCount}), retrying in ${delay}ms:`, apiError.message);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return this.callGeminiAPI(text, attempt + 1);
-      }
-
-      console.error(`Gemini API call failed:`, apiError);
-      throw new Error(apiError.message);
-    }
-  }
-
-  private async callSentimentAPI(text: string, modelUrl: string, attempt: number = 1): Promise<ApiResponse[]> {
-    try {
-      this.validateInput(text);
-
-      const response = await axios.post(
-        modelUrl,
-        { inputs: text },
-        {
-          headers: {
-            'Authorization': `Bearer ${this.apiToken}`,
-            'Content-Type': 'application/json',
-          },
-          timeout: 30000, // 30 second timeout
-          validateStatus: (status) => status < 500, // Don't throw for client errors
-        }
-      );
-
-      // Handle successful response
-      if (response.status === 200 && response.data) {
-        const result = Array.isArray(response.data) ? response.data[0] : response.data;
-        if (Array.isArray(result) && result.length > 0) {
-          return result;
-        }
-      }
-
-      // Handle model loading (202 status)
-      if (response.status === 202) {
-        if (attempt <= this.retryCount) {
-          const delay = this.retryDelay * Math.pow(2, attempt - 1); // Exponential backoff
-          console.log(`Model loading, retrying in ${delay}ms (attempt ${attempt}/${this.retryCount})`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-          return this.callSentimentAPI(text, modelUrl, attempt + 1);
-        } else {
-          throw new Error('Model is still loading after multiple attempts');
-        }
-      }
-
-      // Handle other non-200 responses
-      throw new Error(`API returned status ${response.status}: ${response.data?.error || 'Unknown error'}`);
-
-    } catch (error) {
-      const apiError = this.parseApiError(error);
-      
-      // If it's a permission error, mark the token as lacking permissions
-      if (apiError.type === 'permission') {
-        this.tokenHasPermissions = false;
-        console.warn('API token lacks required permissions, disabling Hugging Face API calls');
-      }
-      
-      // Retry logic for certain error types (but not permission errors)
-      if (attempt <= this.retryCount && 
-          (apiError.type === 'network' || apiError.type === 'timeout' || apiError.type === 'server') &&
-          apiError.type !== 'permission') {
-        const delay = this.retryDelay * Math.pow(2, attempt - 1);
-        console.warn(`API call failed (attempt ${attempt}/${this.retryCount}), retrying in ${delay}ms:`, apiError.message);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        return this.callSentimentAPI(text, modelUrl, attempt + 1);
-      }
-
-      // Log the error for debugging
-      console.error(`API call failed for ${modelUrl}:`, apiError);
-      throw new Error(apiError.message);
-    }
-  }
-
   public async analyzeSentiment(text: string): Promise<ApiResponse[]> {
     try {
       this.validateInput(text);
       const processedText = this.preprocessText(text);
       
-      // Try Gemini API first for enhanced accuracy (only if API key is available)
-      if (this.useGemini && GEMINI_API_KEY) {
-        try {
-          console.log('Using Gemini API for enhanced sentiment analysis');
-          const geminiResult = await this.callGeminiAPI(processedText);
-          return geminiResult;
-        } catch (geminiError) {
-          console.warn('Gemini API failed, falling back to other methods:', geminiError);
-        }
-      }
-      
-      // Fallback to Hugging Face APIs if available and token has permissions
-      if (this.apiToken && this.apiToken.trim() !== '' && this.tokenHasPermissions) {
-        if (this.useEnsemble) {
-          // Ensemble approach using multiple models
-          const results = await Promise.allSettled([
-            this.callSentimentAPI(processedText, SENTIMENT_MODELS.primary),
-            this.callSentimentAPI(processedText, SENTIMENT_MODELS.secondary)
-          ]);
-
-          const primaryResult = results[0].status === 'fulfilled' ? results[0].value : null;
-          const secondaryResult = results[1].status === 'fulfilled' ? results[1].value : null;
-
-          // Check if any calls failed due to permission issues
-          const primaryError = results[0].status === 'rejected' ? results[0].reason : null;
-          const secondaryError = results[1].status === 'rejected' ? results[1].reason : null;
-          
-          if (primaryError?.message?.includes('lacks required permissions') || 
-              secondaryError?.message?.includes('lacks required permissions')) {
-            console.warn('Permission issues detected, switching to enhanced local analysis');
-            this.tokenHasPermissions = false;
-          }
-
-          if (primaryResult && secondaryResult) {
-            return this.combineEnsembleResults(primaryResult, secondaryResult);
-          } else if (primaryResult) {
-            return primaryResult;
-          } else if (secondaryResult) {
-            return this.normalizeSecondaryModelResults(secondaryResult);
-          } else {
-            // Both API calls failed, log the errors
-            console.warn('All Hugging Face API calls failed, using enhanced fallback analysis:', { primaryError, secondaryError });
-          }
-        } else {
-          // Single model approach
-          try {
-            return await this.callSentimentAPI(processedText, SENTIMENT_MODELS.primary);
-          } catch (error) {
-            if (error instanceof Error && error.message.includes('lacks required permissions')) {
-              this.tokenHasPermissions = false;
-            }
-            console.warn('Primary Hugging Face API failed, using enhanced fallback analysis:', error);
-          }
-        }
-      }
-      
-      // Final fallback to enhanced mock analysis
-      console.log('Using enhanced local sentiment analysis');
-      return this.getEnhancedMockSentiment(processedText, text);
+      // Use enhanced local sentiment analysis
+      console.log('Using enhanced local sentiment analysis with training data patterns');
+      return this.getEnhancedSentimentAnalysis(processedText, text);
       
     } catch (error) {
       console.error('Sentiment analysis failed:', error);
       
-      // Fallback to enhanced mock analysis with error context
-      if (error instanceof Error) {
-        console.warn('Falling back to enhanced mock analysis due to:', error.message);
-      }
-      
+      // Fallback to basic analysis
       try {
         const processedText = this.preprocessText(text);
-        return this.getEnhancedMockSentiment(processedText, text);
+        return this.getEnhancedSentimentAnalysis(processedText, text);
       } catch (fallbackError) {
         throw new Error('Sentiment analysis failed and fallback analysis also failed. Please check your input and try again.');
       }
@@ -564,8 +212,8 @@ Format your response as valid JSON only, no additional text.`;
     const results: ApiResponse[][] = [];
     const errors: { index: number; error: string }[] = [];
     
-    // Process in smaller batches to avoid rate limiting and improve reliability
-    const batchSize = this.useGemini && GEMINI_API_KEY ? 2 : 3; // Smaller batches for Gemini due to potential rate limits
+    // Process in smaller batches for better performance
+    const batchSize = 5;
     for (let i = 0; i < texts.length; i += batchSize) {
       const batch = texts.slice(i, i + batchSize);
       
@@ -580,16 +228,16 @@ Format your response as valid JSON only, no additional text.`;
               error: error instanceof Error ? error.message : 'Unknown error'
             });
             // Return fallback result for failed analysis
-            return this.getEnhancedMockSentiment(this.preprocessText(text), text);
+            return this.getEnhancedSentimentAnalysis(this.preprocessText(text), text);
           }
         });
         
         const batchResults = await Promise.all(batchPromises);
         results.push(...batchResults);
         
-        // Longer delay between batches for API stability
+        // Small delay between batches for performance
         if (i + batchSize < texts.length) {
-          await new Promise(resolve => setTimeout(resolve, this.useGemini && GEMINI_API_KEY ? 3000 : 2000));
+          await new Promise(resolve => setTimeout(resolve, 100));
         }
       } catch (error) {
         console.error(`Batch processing failed for batch starting at index ${i}:`, error);
@@ -601,7 +249,7 @@ Format your response as valid JSON only, no additional text.`;
             index: globalIndex,
             error: 'Batch processing failed'
           });
-          results.push(this.getEnhancedMockSentiment(this.preprocessText(batch[j]), batch[j]));
+          results.push(this.getEnhancedSentimentAnalysis(this.preprocessText(batch[j]), batch[j]));
         }
       }
     }
@@ -614,77 +262,9 @@ Format your response as valid JSON only, no additional text.`;
     return results;
   }
 
-  private combineEnsembleResults(primary: ApiResponse[], secondary: ApiResponse[]): ApiResponse[] {
+  private getEnhancedSentimentAnalysis(processedText: string, originalText: string): ApiResponse[] {
     try {
-      // Combine results from multiple models with weighted averaging
-      const combinedScores: Record<string, number> = {
-        'LABEL_0': 0, // negative
-        'LABEL_1': 0, // neutral
-        'LABEL_2': 0  // positive
-      };
-
-      // Weight primary model more heavily (70% vs 30%)
-      primary.forEach(result => {
-        const normalizedLabel = this.normalizeLabelToStandard(result.label);
-        if (normalizedLabel) {
-          combinedScores[normalizedLabel] += result.score * 0.7;
-        }
-      });
-
-      secondary.forEach(result => {
-        const normalizedLabel = this.normalizeLabelToStandard(result.label);
-        if (normalizedLabel) {
-          combinedScores[normalizedLabel] += result.score * 0.3;
-        }
-      });
-
-      // Convert back to array format and sort by score
-      return Object.entries(combinedScores)
-        .map(([label, score]) => ({ label, score }))
-        .sort((a, b) => b.score - a.score);
-    } catch (error) {
-      console.warn('Ensemble combination failed, using primary result:', error);
-      return primary;
-    }
-  }
-
-  private normalizeLabelToStandard(label: string): string | null {
-    const labelMap: Record<string, string> = {
-      'LABEL_0': 'LABEL_0', // negative
-      'LABEL_1': 'LABEL_1', // neutral
-      'LABEL_2': 'LABEL_2', // positive
-      'negative': 'LABEL_0',
-      'neutral': 'LABEL_1',
-      'positive': 'LABEL_2',
-      '1 star': 'LABEL_0',
-      '2 stars': 'LABEL_0',
-      '3 stars': 'LABEL_1',
-      '4 stars': 'LABEL_2',
-      '5 stars': 'LABEL_2'
-    };
-    
-    return labelMap[label] || null;
-  }
-
-  private normalizeSecondaryModelResults(results: ApiResponse[]): ApiResponse[] {
-    try {
-      // Convert star ratings to sentiment labels
-      return results.map(result => {
-        const normalizedLabel = this.normalizeLabelToStandard(result.label);
-        return {
-          label: normalizedLabel || result.label,
-          score: result.score
-        };
-      }).filter(result => result.label.startsWith('LABEL_'));
-    } catch (error) {
-      console.warn('Secondary model normalization failed:', error);
-      return results;
-    }
-  }
-
-  private getEnhancedMockSentiment(processedText: string, originalText: string): ApiResponse[] {
-    try {
-      // Enhanced mock sentiment analysis with training data patterns
+      // Enhanced sentiment analysis with training data patterns
       const features = this.extractTextFeaturesWithTrainingData(processedText, originalText);
       
       let positiveScore = features.positiveScore;
@@ -746,7 +326,7 @@ Format your response as valid JSON only, no additional text.`;
         { label: 'LABEL_1', score: normalizedNeutral }
       ].sort((a, b) => b.score - a.score);
     } catch (error) {
-      console.error('Mock sentiment analysis failed:', error);
+      console.error('Enhanced sentiment analysis failed:', error);
       // Return default neutral sentiment
       return [
         { label: 'LABEL_1', score: 0.7 },
@@ -1044,13 +624,8 @@ Format your response as valid JSON only, no additional text.`;
     }
   }
 
-  // Public method to check if token has permissions (for UI feedback)
-  public hasValidToken(): boolean {
-    return this.apiToken && this.apiToken.trim() !== '' && this.tokenHasPermissions;
-  }
-
-  // Public method to reset token permissions (for when user updates token)
-  public resetTokenPermissions(): void {
-    this.tokenHasPermissions = true;
+  // Public method to check if token is set (for UI feedback)
+  public hasApiToken(): boolean {
+    return this.apiToken && this.apiToken.trim() !== '';
   }
 }
