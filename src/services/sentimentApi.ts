@@ -8,8 +8,8 @@ const SENTIMENT_MODELS = {
   tertiary: 'https://api-inference.huggingface.co/models/j-hartmann/emotion-english-distilroberta-base'
 };
 
-// Google Gemini API configuration
-const GEMINI_API_KEY = 'AIzaSyA1juCGrcLm1dS5pqhi8CPlPTbhoYqxQEI';
+// Google Gemini API configuration - set to null to prevent rate limiting
+const GEMINI_API_KEY = null;
 const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`;
 
 interface ApiError {
@@ -456,7 +456,7 @@ Format your response as valid JSON only, no additional text.`;
       this.validateInput(text);
       const processedText = this.preprocessText(text);
       
-      // Try Gemini API first for enhanced accuracy
+      // Try Gemini API first for enhanced accuracy (only if API key is available)
       if (this.useGemini && GEMINI_API_KEY) {
         try {
           console.log('Using Gemini API for enhanced sentiment analysis');
@@ -490,12 +490,15 @@ Format your response as valid JSON only, no additional text.`;
             const primaryError = results[0].status === 'rejected' ? results[0].reason : null;
             const secondaryError = results[1].status === 'rejected' ? results[1].reason : null;
             
-            console.error('All Hugging Face API calls failed:', { primaryError, secondaryError });
-            throw new Error('All sentiment analysis APIs are currently unavailable. Using enhanced fallback analysis.');
+            console.warn('All Hugging Face API calls failed, using enhanced fallback analysis:', { primaryError, secondaryError });
           }
         } else {
           // Single model approach
-          return await this.callSentimentAPI(processedText, SENTIMENT_MODELS.primary);
+          try {
+            return await this.callSentimentAPI(processedText, SENTIMENT_MODELS.primary);
+          } catch (error) {
+            console.warn('Primary Hugging Face API failed, using enhanced fallback analysis:', error);
+          }
         }
       }
       
@@ -533,7 +536,7 @@ Format your response as valid JSON only, no additional text.`;
     const errors: { index: number; error: string }[] = [];
     
     // Process in smaller batches to avoid rate limiting and improve reliability
-    const batchSize = this.useGemini ? 2 : 3; // Smaller batches for Gemini due to potential rate limits
+    const batchSize = this.useGemini && GEMINI_API_KEY ? 2 : 3; // Smaller batches for Gemini due to potential rate limits
     for (let i = 0; i < texts.length; i += batchSize) {
       const batch = texts.slice(i, i + batchSize);
       
@@ -557,7 +560,7 @@ Format your response as valid JSON only, no additional text.`;
         
         // Longer delay between batches for API stability
         if (i + batchSize < texts.length) {
-          await new Promise(resolve => setTimeout(resolve, this.useGemini ? 3000 : 2000));
+          await new Promise(resolve => setTimeout(resolve, this.useGemini && GEMINI_API_KEY ? 3000 : 2000));
         }
       } catch (error) {
         console.error(`Batch processing failed for batch starting at index ${i}:`, error);
