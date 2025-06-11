@@ -24,7 +24,8 @@ const TRAINING_PATTERNS = {
       'incredibly helpful', 'wonderful experience', 'great value', 'excellent customer service',
       'top notch', 'five stars', 'best ever', 'amazing quality', 'superb performance',
       'delighted with', 'thrilled about', 'impressed by', 'satisfied with results',
-      'works perfectly', 'exactly what needed', 'beyond expectations', 'remarkable improvement'
+      'works perfectly', 'exactly what needed', 'beyond expectations', 'remarkable improvement',
+      'money well spent', 'worth every penny', 'highly satisfied', 'would buy again'
     ],
     words: [
       'excellent', 'amazing', 'wonderful', 'fantastic', 'perfect', 'outstanding', 
@@ -33,9 +34,10 @@ const TRAINING_PATTERNS = {
       'impressive', 'remarkable', 'exceptional', 'marvelous', 'terrific',
       'beautiful', 'stunning', 'incredible', 'phenomenal', 'spectacular',
       'flawless', 'superior', 'premium', 'quality', 'valuable', 'helpful',
-      'efficient', 'reliable', 'trustworthy', 'professional', 'friendly'
+      'efficient', 'reliable', 'trustworthy', 'professional', 'friendly',
+      'recommend', 'recommend', 'thrilled', 'delighted', 'impressed'
     ],
-    intensifiers: ['absolutely', 'extremely', 'incredibly', 'remarkably', 'exceptionally', 'truly', 'genuinely']
+    intensifiers: ['absolutely', 'extremely', 'incredibly', 'remarkably', 'exceptionally', 'truly', 'genuinely', 'very', 'really', 'quite']
   },
   negative: {
     phrases: [
@@ -44,7 +46,8 @@ const TRAINING_PATTERNS = {
       'not recommended', 'avoid at all costs', 'money wasted', 'regret buying',
       'broken promises', 'failed expectations', 'useless product', 'terrible support',
       'nightmare experience', 'completely unsatisfied', 'major problems', 'serious issues',
-      'does not work', 'falling apart', 'cheap quality', 'overpriced junk'
+      'does not work', 'falling apart', 'cheap quality', 'overpriced junk',
+      'waste of money', 'total failure', 'extremely disappointed', 'never again'
     ],
     words: [
       'terrible', 'awful', 'horrible', 'disgusting', 'disappointing', 'pathetic',
@@ -52,24 +55,40 @@ const TRAINING_PATTERNS = {
       'annoying', 'frustrating', 'useless', 'worthless', 'poor', 'worst',
       'unacceptable', 'inadequate', 'inferior', 'defective', 'faulty',
       'broken', 'damaged', 'unreliable', 'unprofessional', 'rude', 'slow',
-      'expensive', 'overpriced', 'cheap', 'flimsy', 'fragile', 'uncomfortable'
+      'expensive', 'overpriced', 'cheap', 'flimsy', 'fragile', 'uncomfortable',
+      'disappointed', 'regret', 'waste', 'failed', 'disaster', 'nightmare'
     ],
-    intensifiers: ['absolutely', 'completely', 'totally', 'utterly', 'extremely', 'incredibly', 'ridiculously']
+    intensifiers: ['absolutely', 'completely', 'totally', 'utterly', 'extremely', 'incredibly', 'ridiculously', 'very', 'really', 'quite']
   },
   neutral: {
     phrases: [
       'it is okay', 'average quality', 'nothing special', 'as expected',
       'standard service', 'typical experience', 'meets requirements', 'basic functionality',
       'normal performance', 'adequate solution', 'fair price', 'reasonable option',
-      'could be better', 'room for improvement', 'mixed feelings', 'pros and cons'
+      'could be better', 'room for improvement', 'mixed feelings', 'pros and cons',
+      'neither good nor bad', 'middle of the road', 'so so', 'not bad not great'
     ],
     words: [
       'okay', 'average', 'normal', 'standard', 'typical', 'regular',
       'ordinary', 'common', 'usual', 'basic', 'moderate', 'fair',
       'adequate', 'acceptable', 'reasonable', 'decent', 'sufficient',
-      'mediocre', 'mixed', 'neutral', 'balanced', 'expected'
+      'mediocre', 'mixed', 'neutral', 'balanced', 'expected',
+      'fine', 'alright', 'so-so', 'middle', 'standard'
     ]
-  }
+  },
+  // Strong negative indicators that should never be neutral
+  strongNegative: [
+    'hate', 'terrible', 'awful', 'horrible', 'disgusting', 'pathetic',
+    'atrocious', 'dreadful', 'appalling', 'abysmal', 'worst', 'useless',
+    'worthless', 'unacceptable', 'disaster', 'nightmare', 'regret',
+    'waste', 'failed', 'broken', 'damaged', 'defective', 'faulty'
+  ],
+  // Strong positive indicators that should never be neutral
+  strongPositive: [
+    'love', 'excellent', 'amazing', 'wonderful', 'fantastic', 'perfect',
+    'outstanding', 'brilliant', 'superb', 'magnificent', 'awesome',
+    'incredible', 'phenomenal', 'spectacular', 'flawless', 'exceptional'
+  ]
 };
 
 export class SentimentAnalysisService {
@@ -528,6 +547,17 @@ export class SentimentAnalysisService {
         negativeScore *= 0.8;
         neutralScore *= 1.2;
       }
+
+      // Apply strong sentiment overrides
+      if (features.hasStrongNegative) {
+        negativeScore *= 2.0;
+        neutralScore *= 0.3;
+      }
+      
+      if (features.hasStrongPositive) {
+        positiveScore *= 2.0;
+        neutralScore *= 0.3;
+      }
       
       // Normalize scores
       const total = positiveScore + negativeScore + neutralScore;
@@ -567,6 +597,24 @@ export class SentimentAnalysisService {
       let positiveScore = 0;
       let negativeScore = 0;
       let neutralScore = 0.3; // Base neutral score
+      
+      // Check for strong sentiment indicators first
+      let hasStrongNegative = false;
+      let hasStrongPositive = false;
+      
+      TRAINING_PATTERNS.strongNegative.forEach(word => {
+        if (lowerText.includes(word)) {
+          hasStrongNegative = true;
+          negativeScore += 1.0;
+        }
+      });
+      
+      TRAINING_PATTERNS.strongPositive.forEach(word => {
+        if (lowerText.includes(word)) {
+          hasStrongPositive = true;
+          positiveScore += 1.0;
+        }
+      });
       
       // Enhanced pattern matching using training data
       
@@ -627,14 +675,16 @@ export class SentimentAnalysisService {
         }
       });
       
-      // Check for neutral words
-      TRAINING_PATTERNS.neutral.words.forEach(word => {
-        const regex = new RegExp(`\\b${word}\\b`, 'g');
-        const matches = lowerText.match(regex);
-        if (matches) {
-          neutralScore += matches.length * 0.3;
-        }
-      });
+      // Check for neutral words (only if no strong sentiment detected)
+      if (!hasStrongNegative && !hasStrongPositive) {
+        TRAINING_PATTERNS.neutral.words.forEach(word => {
+          const regex = new RegExp(`\\b${word}\\b`, 'g');
+          const matches = lowerText.match(regex);
+          if (matches) {
+            neutralScore += matches.length * 0.3;
+          }
+        });
+      }
       
       // Check for special indicators
       const hasNegation = /NOT_/.test(lowerProcessed);
@@ -708,7 +758,9 @@ export class SentimentAnalysisService {
         neutralScore,
         hasNegation,
         hasIntensifier,
-        hasDiminisher
+        hasDiminisher,
+        hasStrongNegative,
+        hasStrongPositive
       };
     } catch (error) {
       console.warn('Enhanced feature extraction failed:', error);
@@ -718,7 +770,9 @@ export class SentimentAnalysisService {
         neutralScore: 0.4,
         hasNegation: false,
         hasIntensifier: false,
-        hasDiminisher: false
+        hasDiminisher: false,
+        hasStrongNegative: false,
+        hasStrongPositive: false
       };
     }
   }
@@ -740,17 +794,22 @@ export class SentimentAnalysisService {
       const sentimentKeywords = {
         positive: TRAINING_PATTERNS.positive.words.concat(
           TRAINING_PATTERNS.positive.phrases.join(' ').split(' ')
-        ),
+        ).filter(word => word.length > 2),
         negative: TRAINING_PATTERNS.negative.words.concat(
           TRAINING_PATTERNS.negative.phrases.join(' ').split(' ')
-        ),
+        ).filter(word => word.length > 2),
         neutral: TRAINING_PATTERNS.neutral.words.concat(
           TRAINING_PATTERNS.neutral.phrases.join(' ').split(' ')
-        )
+        ).filter(word => word.length > 2)
       };
       
       const relevantWords = words.filter(word => {
         if (stopWords.has(word)) return false;
+        
+        // Always include strong sentiment words regardless of context
+        if (TRAINING_PATTERNS.strongNegative.includes(word) || TRAINING_PATTERNS.strongPositive.includes(word)) {
+          return true;
+        }
         
         // Include sentiment-specific words
         if (sentimentKeywords[sentiment as keyof typeof sentimentKeywords]?.includes(word)) {
@@ -778,6 +837,11 @@ export class SentimentAnalysisService {
       // Score keywords by relevance and frequency
       const keywordScores = uniqueKeywords.map(keyword => {
         let score = 0;
+        
+        // Higher score for strong sentiment words
+        if (TRAINING_PATTERNS.strongNegative.includes(keyword) || TRAINING_PATTERNS.strongPositive.includes(keyword)) {
+          score += 5;
+        }
         
         // Higher score for sentiment-specific words
         if (sentimentKeywords[sentiment as keyof typeof sentimentKeywords]?.includes(keyword)) {
