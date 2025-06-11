@@ -21,7 +21,7 @@ const TRAINING_PATTERNS = {
       'beautiful', 'stunning', 'incredible', 'phenomenal', 'spectacular',
       'flawless', 'superior', 'premium', 'quality', 'valuable', 'helpful',
       'efficient', 'reliable', 'trustworthy', 'professional', 'friendly',
-      'recommend', 'recommend', 'thrilled', 'delighted', 'impressed'
+      'recommend', 'recommend', 'thrilled', 'delighted', 'impressed','ecstatic','fun','masterpiece','inspiring','sunshine'
     ],
     intensifiers: ['absolutely', 'extremely', 'incredibly', 'remarkably', 'exceptionally', 'truly', 'genuinely', 'very', 'really', 'quite']
   },
@@ -38,11 +38,11 @@ const TRAINING_PATTERNS = {
     words: [
       'terrible', 'awful', 'horrible', 'disgusting', 'disappointing', 'pathetic',
       'atrocious', 'dreadful', 'appalling', 'abysmal', 'bad', 'hate', 'dislike',
-      'annoying', 'frustrating', 'useless', 'worthless', 'poor', 'worst',
+      'annoying', 'frustrated', 'useless', 'worthless', 'poor', 'worst',
       'unacceptable', 'inadequate', 'inferior', 'defective', 'faulty',
       'broken', 'damaged', 'unreliable', 'unprofessional', 'rude', 'slow',
       'expensive', 'overpriced', 'cheap', 'flimsy', 'fragile', 'uncomfortable',
-      'disappointed', 'regret', 'waste', 'failed', 'disaster', 'nightmare'
+      'disappointed', 'regret', 'waste', 'failed', 'disaster', 'nightmare','unclear','miserable','fuming','boring','despise','unbearable','horrific','garbage'
     ],
     intensifiers: ['absolutely', 'completely', 'totally', 'utterly', 'extremely', 'incredibly', 'ridiculously', 'very', 'really', 'quite']
   },
@@ -59,7 +59,7 @@ const TRAINING_PATTERNS = {
       'ordinary', 'common', 'usual', 'basic', 'moderate', 'fair',
       'adequate', 'acceptable', 'reasonable', 'decent', 'sufficient',
       'mediocre', 'mixed', 'neutral', 'balanced', 'expected',
-      'fine', 'alright', 'so-so', 'middle', 'standard'
+      'fine', 'alright', 'so-so', 'middle', 'standard','adequate'
     ]
   },
   // Strong negative indicators that should never be neutral
