@@ -1,6 +1,7 @@
 import React from 'react';
 import { FileText, Download, Tag } from 'lucide-react';
 import { SentimentResult } from '../types/sentiment';
+import { SentimentExplanation } from './SentimentExplanation';
 
 interface ResultsDisplayProps {
   results: SentimentResult[];
@@ -94,7 +95,7 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, onExpor
                   <p className="text-gray-700 mb-3 line-clamp-3">{result.text}</p>
                   
                   {result.keywords.length > 0 && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 mb-3">
                       <Tag size={14} className="text-gray-400" />
                       <div className="flex flex-wrap gap-1">
                         {result.keywords.map((keyword, index) => (
@@ -108,6 +109,9 @@ export const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, onExpor
                       </div>
                     </div>
                   )}
+                  
+                  {/* Sentiment Explanation Component */}
+                  <SentimentExplanation result={result} />
                   
                   <div className="text-xs text-gray-400 mt-2">
                     {result.timestamp.toLocaleDateString()} {result.timestamp.toLocaleTimeString()}

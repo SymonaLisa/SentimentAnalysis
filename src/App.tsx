@@ -4,6 +4,7 @@ import { ApiTokenInput } from './components/ApiTokenInput';
 import { TextInput } from './components/TextInput';
 import { ResultsDisplay } from './components/ResultsDisplay';
 import { SentimentVisualization } from './components/SentimentVisualization';
+import { ComparativeAnalysis } from './components/ComparativeAnalysis';
 import { SentimentAnalysisService } from './services/sentimentApi';
 import { SentimentResult, BatchAnalysisResult } from './types/sentiment';
 import { exportToCSV, exportToJSON, exportToPDF } from './utils/exportUtils';
@@ -201,6 +202,11 @@ function App() {
           {/* Visualization */}
           {results.length > 0 && (
             <SentimentVisualization results={results} batchResults={batchResults} />
+          )}
+
+          {/* Comparative Analysis */}
+          {results.length > 1 && (
+            <ComparativeAnalysis results={results} />
           )}
 
           {/* Results */}
