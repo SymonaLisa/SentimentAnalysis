@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, ScatterChart, Scatter } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { TrendingUp, GitCompare, Info, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 import { SentimentResult } from '../types/sentiment';
 
@@ -152,14 +152,6 @@ export const ComparativeAnalysis: React.FC<ComparativeAnalysisProps> = ({ result
     total: group.results.length
   }));
 
-  const confidenceData = results.map((result, index) => ({
-    index: index + 1,
-    confidence: Math.round(result.confidence * 100),
-    sentiment: result.sentiment,
-    length: result.text.length,
-    source: result.source || 'Direct Input'
-  }));
-
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-200">
@@ -194,55 +186,25 @@ export const ComparativeAnalysis: React.FC<ComparativeAnalysisProps> = ({ result
         </div>
 
         {/* Comparison Chart */}
-        <div className="grid lg:grid-cols-2 gap-6 mb-6">
-          <div>
-            <h4 className="text-lg font-semibold text-gray-900 mb-4">Sentiment Distribution</h4>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis 
-                  dataKey="name" 
-                  angle={-45}
-                  textAnchor="end"
-                  height={80}
-                  fontSize={12}
-                />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="positive" stackId="a" fill="#10B981" name="Positive" />
-                <Bar dataKey="neutral" stackId="a" fill="#6B7280" name="Neutral" />
-                <Bar dataKey="negative" stackId="a" fill="#EF4444" name="Negative" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div>
-            <h4 className="text-lg font-semibold text-gray-900 mb-4">Confidence vs Text Length</h4>
-            <ResponsiveContainer width="100%" height={300}>
-              <ScatterChart data={confidenceData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="length" name="Text Length" />
-                <YAxis dataKey="confidence" name="Confidence %" domain={[0, 100]} />
-                <Tooltip 
-                  formatter={(value, name) => [
-                    name === 'confidence' ? `${value}%` : value,
-                    name === 'confidence' ? 'Confidence' : 'Text Length'
-                  ]}
-                  labelFormatter={(label) => `Analysis #${label}`}
-                />
-                <Scatter 
-                  dataKey="confidence" 
-                  fill={(entry: any) => {
-                    switch (entry.sentiment) {
-                      case 'positive': return '#10B981';
-                      case 'negative': return '#EF4444';
-                      default: return '#6B7280';
-                    }
-                  }}
-                />
-              </ScatterChart>
-            </ResponsiveContainer>
-          </div>
+        <div className="mb-6">
+          <h4 className="text-lg font-semibold text-gray-900 mb-4">Sentiment Distribution</h4>
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="name" 
+                angle={-45}
+                textAnchor="end"
+                height={80}
+                fontSize={12}
+              />
+              <YAxis />
+              <Tooltip />
+              <Bar dataKey="positive" stackId="a" fill="#10B981" name="Positive" />
+              <Bar dataKey="neutral" stackId="a" fill="#6B7280" name="Neutral" />
+              <Bar dataKey="negative" stackId="a" fill="#EF4444" name="Negative" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
 
         {/* Detailed Group Analysis */}
