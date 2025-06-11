@@ -5,8 +5,10 @@ import { TextInput } from './components/TextInput';
 import { ResultsDisplay } from './components/ResultsDisplay';
 import { SentimentVisualization } from './components/SentimentVisualization';
 import { ComparativeAnalysis } from './components/ComparativeAnalysis';
+import { TestDataLoader } from './components/TestDataLoader';
 import { SentimentAnalysisService } from './services/sentimentApi';
 import { SentimentResult, BatchAnalysisResult } from './types/sentiment';
+import { TestDataEntry } from './data/testData';
 import { exportToCSV, exportToJSON, exportToPDF } from './utils/exportUtils';
 
 function App() {
@@ -113,6 +115,73 @@ function App() {
     }
   };
 
+  const handleLoadTestData = (texts: string[]) => {
+    handleBatchAnalyze(texts);
+  };
+
+  const handleRunAccuracyTest = async (testEntries: TestDataEntry[]) => {
+    setIsLoading(true);
+    try {
+      const texts = testEntries.map(entry => entry.text);
+      const apiResultsArray = await sentimentService.analyzeBatch(texts);
+      
+      const testResults: SentimentResult[] = apiResultsArray.map((apiResults, index) => {
+        const topResult = apiResults[0];
+        const sentiment = mapApiResponseToSentiment(topResult.label);
+        const keywords = sentimentService.extractKeywords(texts[index], sentiment);
+        
+        return {
+          id: `test-${Date.now()}-${index}`,
+          text: texts[index],
+          sentiment,
+          confidence: topResult.score,
+          keywords,
+          timestamp: new Date(),
+          source: `Accuracy Test - Expected: ${testEntries[index].expectedSentiment}`
+        };
+      });
+      
+      // Calculate accuracy metrics
+      const correctPredictions = testResults.filter((result, index) => 
+        result.sentiment === testEntries[index].expectedSentiment
+      ).length;
+      
+      const accuracy = Math.round((correctPredictions / testResults.length) * 100);
+      
+      console.log(`Accuracy Test Results: ${accuracy}% (${correctPredictions}/${testResults.length})`);
+      
+      // Add results to main results
+      setResults(prev => [...testResults, ...prev]);
+      
+      // Create batch analysis for accuracy test
+      const summary = {
+        total: testResults.length,
+        positive: testResults.filter(r => r.sentiment === 'positive').length,
+        negative: testResults.filter(r => r.sentiment === 'negative').length,
+        neutral: testResults.filter(r => r.sentiment === 'neutral').length,
+        averageConfidence: testResults.reduce((sum, r) => sum + r.confidence, 0) / testResults.length
+      };
+      
+      const batchAnalysis: BatchAnalysisResult = {
+        id: `accuracy-test-${Date.now()}`,
+        results: testResults,
+        summary: {
+          ...summary,
+          accuracy,
+          correctPredictions
+        } as any,
+        timestamp: new Date()
+      };
+      
+      setBatchResults(prev => [batchAnalysis, ...prev]);
+      
+    } catch (error) {
+      console.error('Accuracy test failed:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleExport = (format: 'csv' | 'json' | 'pdf') => {
     switch (format) {
       case 'csv':
@@ -198,6 +267,14 @@ function App() {
               </div>
             </div>
           </div>
+
+          {/* Test Data Loader */}
+          <TestDataLoader
+            onLoadTestData={handleLoadTestData}
+            onRunAccuracyTest={handleRunAccuracyTest}
+            isLoading={isLoading}
+            results={results}
+          />
 
           {/* Visualization */}
           {results.length > 0 && (
