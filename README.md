@@ -2,30 +2,31 @@
 
 ## Overview
 
-The Sentiment Analysis App is a modern web application built with **React**, **TypeScript**, and **Tailwind CSS**, powered by **Vite**. It provides sentiment analysis and data visualization based on user input or external data sources.
+The **Sentiment Analysis App** is a modern front-end web application built with **React**, **TypeScript**, and **Tailwind CSS**, powered by **Vite**. It performs real-time sentiment analysis and visualizes the results in an intuitive interface.
 
 🔗 **Live Demo:** [https://gregarious-puffpuff-f26a21.netlify.app/](https://gregarious-puffpuff-f26a21.netlify.app/)
 
 ## Features
 
-- 🔍 Real-time sentiment analysis via a dedicated API
-- 📊 Visual sentiment data display (charts, graphs, etc.)
-- ⚡ Fast and optimized front-end build with Vite
-- 🎨 Stylish, responsive UI using Tailwind CSS
+- 🔍 Real-time sentiment analysis via API
+- 📊 Data visualization with responsive charts
+- ⚡ Lightning-fast development with Vite
+- 💅 Utility-first styling with Tailwind CSS
+- 🚀 Production-ready build output (`dist/`)
 
 ## Tech Stack
 
-- **React** + **TypeScript**
-- **Vite** for fast bundling and hot module replacement
+- **React** & **TypeScript**
+- **Vite** for fast build and dev server
 - **Tailwind CSS** for styling
-- **ESLint** for code linting
-- **Custom API integration** for sentiment analysis
+- **ESLint** for linting
+- **HTML2Canvas** for DOM-to-image rendering (from `dist/assets/`)
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js (v16 or higher)
+- Node.js (v16+)
 - npm or yarn
 
 ### Installation
