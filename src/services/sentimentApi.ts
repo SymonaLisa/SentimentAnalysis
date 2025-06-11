@@ -15,6 +15,63 @@ interface ApiError {
   retryAfter?: number;
 }
 
+// Enhanced training data patterns extracted from the provided dataset
+const TRAINING_PATTERNS = {
+  positive: {
+    phrases: [
+      'love this', 'absolutely amazing', 'fantastic experience', 'highly recommend',
+      'exceeded expectations', 'brilliant service', 'outstanding quality', 'perfect solution',
+      'incredibly helpful', 'wonderful experience', 'great value', 'excellent customer service',
+      'top notch', 'five stars', 'best ever', 'amazing quality', 'superb performance',
+      'delighted with', 'thrilled about', 'impressed by', 'satisfied with results',
+      'works perfectly', 'exactly what needed', 'beyond expectations', 'remarkable improvement'
+    ],
+    words: [
+      'excellent', 'amazing', 'wonderful', 'fantastic', 'perfect', 'outstanding', 
+      'brilliant', 'superb', 'magnificent', 'delightful', 'awesome', 'great',
+      'good', 'love', 'like', 'enjoy', 'happy', 'pleased', 'satisfied',
+      'impressive', 'remarkable', 'exceptional', 'marvelous', 'terrific',
+      'beautiful', 'stunning', 'incredible', 'phenomenal', 'spectacular',
+      'flawless', 'superior', 'premium', 'quality', 'valuable', 'helpful',
+      'efficient', 'reliable', 'trustworthy', 'professional', 'friendly'
+    ],
+    intensifiers: ['absolutely', 'extremely', 'incredibly', 'remarkably', 'exceptionally', 'truly', 'genuinely']
+  },
+  negative: {
+    phrases: [
+      'terrible experience', 'worst ever', 'complete waste', 'total disaster',
+      'absolutely awful', 'horrible service', 'disappointing quality', 'poor performance',
+      'not recommended', 'avoid at all costs', 'money wasted', 'regret buying',
+      'broken promises', 'failed expectations', 'useless product', 'terrible support',
+      'nightmare experience', 'completely unsatisfied', 'major problems', 'serious issues',
+      'does not work', 'falling apart', 'cheap quality', 'overpriced junk'
+    ],
+    words: [
+      'terrible', 'awful', 'horrible', 'disgusting', 'disappointing', 'pathetic',
+      'atrocious', 'dreadful', 'appalling', 'abysmal', 'bad', 'hate', 'dislike',
+      'annoying', 'frustrating', 'useless', 'worthless', 'poor', 'worst',
+      'unacceptable', 'inadequate', 'inferior', 'defective', 'faulty',
+      'broken', 'damaged', 'unreliable', 'unprofessional', 'rude', 'slow',
+      'expensive', 'overpriced', 'cheap', 'flimsy', 'fragile', 'uncomfortable'
+    ],
+    intensifiers: ['absolutely', 'completely', 'totally', 'utterly', 'extremely', 'incredibly', 'ridiculously']
+  },
+  neutral: {
+    phrases: [
+      'it is okay', 'average quality', 'nothing special', 'as expected',
+      'standard service', 'typical experience', 'meets requirements', 'basic functionality',
+      'normal performance', 'adequate solution', 'fair price', 'reasonable option',
+      'could be better', 'room for improvement', 'mixed feelings', 'pros and cons'
+    ],
+    words: [
+      'okay', 'average', 'normal', 'standard', 'typical', 'regular',
+      'ordinary', 'common', 'usual', 'basic', 'moderate', 'fair',
+      'adequate', 'acceptable', 'reasonable', 'decent', 'sufficient',
+      'mediocre', 'mixed', 'neutral', 'balanced', 'expected'
+    ]
+  }
+};
+
 export class SentimentAnalysisService {
   private static instance: SentimentAnalysisService;
   private apiToken: string;
@@ -441,8 +498,8 @@ export class SentimentAnalysisService {
 
   private getEnhancedMockSentiment(processedText: string, originalText: string): ApiResponse[] {
     try {
-      // Enhanced mock sentiment analysis with better accuracy
-      const features = this.extractTextFeatures(processedText, originalText);
+      // Enhanced mock sentiment analysis with training data patterns
+      const features = this.extractTextFeaturesWithTrainingData(processedText, originalText);
       
       let positiveScore = features.positiveScore;
       let negativeScore = features.negativeScore;
@@ -459,9 +516,9 @@ export class SentimentAnalysisService {
       if (features.hasIntensifier) {
         // Amplify the dominant sentiment
         if (positiveScore > negativeScore) {
-          positiveScore *= 1.3;
+          positiveScore *= 1.4;
         } else {
-          negativeScore *= 1.3;
+          negativeScore *= 1.4;
         }
       }
       
@@ -502,28 +559,8 @@ export class SentimentAnalysisService {
     }
   }
 
-  private extractTextFeatures(processedText: string, originalText: string) {
+  private extractTextFeaturesWithTrainingData(processedText: string, originalText: string) {
     try {
-      // Enhanced feature extraction for better sentiment analysis
-      const positiveWords = [
-        'excellent', 'amazing', 'wonderful', 'fantastic', 'perfect', 'outstanding', 
-        'brilliant', 'superb', 'magnificent', 'delightful', 'awesome', 'great',
-        'good', 'love', 'like', 'enjoy', 'happy', 'pleased', 'satisfied',
-        'impressive', 'remarkable', 'exceptional', 'marvelous', 'terrific'
-      ];
-      
-      const negativeWords = [
-        'terrible', 'awful', 'horrible', 'disgusting', 'disappointing', 'pathetic',
-        'atrocious', 'dreadful', 'appalling', 'abysmal', 'bad', 'hate', 'dislike',
-        'annoying', 'frustrating', 'useless', 'worthless', 'poor', 'worst',
-        'unacceptable', 'inadequate', 'inferior', 'defective', 'faulty'
-      ];
-      
-      const neutralWords = [
-        'okay', 'average', 'normal', 'standard', 'typical', 'regular',
-        'ordinary', 'common', 'usual', 'basic', 'moderate', 'fair'
-      ];
-      
       const lowerText = originalText.toLowerCase();
       const lowerProcessed = processedText.toLowerCase();
       
@@ -531,24 +568,67 @@ export class SentimentAnalysisService {
       let negativeScore = 0;
       let neutralScore = 0.3; // Base neutral score
       
-      // Count sentiment words with context awareness
-      positiveWords.forEach(word => {
-        const regex = new RegExp(`\\b${word}\\b`, 'g');
-        const matches = lowerText.match(regex);
-        if (matches) {
-          positiveScore += matches.length * 0.4;
+      // Enhanced pattern matching using training data
+      
+      // Check for positive phrases
+      TRAINING_PATTERNS.positive.phrases.forEach(phrase => {
+        if (lowerText.includes(phrase)) {
+          positiveScore += 0.8; // Higher weight for phrases
         }
       });
       
-      negativeWords.forEach(word => {
-        const regex = new RegExp(`\\b${word}\\b`, 'g');
-        const matches = lowerText.match(regex);
-        if (matches) {
-          negativeScore += matches.length * 0.4;
+      // Check for negative phrases
+      TRAINING_PATTERNS.negative.phrases.forEach(phrase => {
+        if (lowerText.includes(phrase)) {
+          negativeScore += 0.8;
         }
       });
       
-      neutralWords.forEach(word => {
+      // Check for neutral phrases
+      TRAINING_PATTERNS.neutral.phrases.forEach(phrase => {
+        if (lowerText.includes(phrase)) {
+          neutralScore += 0.6;
+        }
+      });
+      
+      // Check for positive words with intensifiers
+      TRAINING_PATTERNS.positive.words.forEach(word => {
+        const regex = new RegExp(`\\b${word}\\b`, 'g');
+        const matches = lowerText.match(regex);
+        if (matches) {
+          let wordScore = matches.length * 0.4;
+          
+          // Check for intensifiers before the word
+          TRAINING_PATTERNS.positive.intensifiers.forEach(intensifier => {
+            if (lowerText.includes(`${intensifier} ${word}`)) {
+              wordScore *= 1.5;
+            }
+          });
+          
+          positiveScore += wordScore;
+        }
+      });
+      
+      // Check for negative words with intensifiers
+      TRAINING_PATTERNS.negative.words.forEach(word => {
+        const regex = new RegExp(`\\b${word}\\b`, 'g');
+        const matches = lowerText.match(regex);
+        if (matches) {
+          let wordScore = matches.length * 0.4;
+          
+          // Check for intensifiers before the word
+          TRAINING_PATTERNS.negative.intensifiers.forEach(intensifier => {
+            if (lowerText.includes(`${intensifier} ${word}`)) {
+              wordScore *= 1.5;
+            }
+          });
+          
+          negativeScore += wordScore;
+        }
+      });
+      
+      // Check for neutral words
+      TRAINING_PATTERNS.neutral.words.forEach(word => {
         const regex = new RegExp(`\\b${word}\\b`, 'g');
         const matches = lowerText.match(regex);
         if (matches) {
@@ -565,23 +645,61 @@ export class SentimentAnalysisService {
       const hasExcitement = /EXCITEMENT/.test(lowerProcessed);
       
       // Apply emoji and emoticon weights
-      if (hasPositiveEmoji) positiveScore += 0.5;
-      if (hasNegativeEmoji) negativeScore += 0.5;
+      if (hasPositiveEmoji) positiveScore += 0.6;
+      if (hasNegativeEmoji) negativeScore += 0.6;
       if (hasExcitement) {
-        if (positiveScore > negativeScore) positiveScore += 0.3;
-        else negativeScore += 0.3;
+        if (positiveScore > negativeScore) positiveScore += 0.4;
+        else negativeScore += 0.4;
       }
       
-      // Sentence structure analysis
-      const sentences = originalText.split(/[.!?]+/).filter(s => s.trim().length > 0);
-      if (sentences.length > 1) {
-        // Multi-sentence text - analyze each sentence
-        sentences.forEach(sentence => {
-          const sentenceScore = this.analyzeSentenceStructure(sentence);
-          positiveScore += sentenceScore.positive;
-          negativeScore += sentenceScore.negative;
-          neutralScore += sentenceScore.neutral;
-        });
+      // Advanced pattern recognition from training data
+      
+      // Check for comparison patterns
+      if (lowerText.includes('better than') || lowerText.includes('superior to')) {
+        positiveScore += 0.3;
+      }
+      if (lowerText.includes('worse than') || lowerText.includes('inferior to')) {
+        negativeScore += 0.3;
+      }
+      
+      // Check for recommendation patterns
+      if (lowerText.includes('recommend') || lowerText.includes('suggest')) {
+        if (hasNegation) {
+          negativeScore += 0.5;
+        } else {
+          positiveScore += 0.5;
+        }
+      }
+      
+      // Check for satisfaction patterns
+      if (lowerText.includes('satisfied') || lowerText.includes('pleased')) {
+        positiveScore += 0.4;
+      }
+      if (lowerText.includes('disappointed') || lowerText.includes('unsatisfied')) {
+        negativeScore += 0.4;
+      }
+      
+      // Check for quality indicators
+      if (lowerText.includes('high quality') || lowerText.includes('premium')) {
+        positiveScore += 0.4;
+      }
+      if (lowerText.includes('low quality') || lowerText.includes('cheap')) {
+        negativeScore += 0.4;
+      }
+      
+      // Check for service-related patterns
+      if (lowerText.includes('customer service') || lowerText.includes('support')) {
+        // Context matters for service mentions
+        const serviceContext = lowerText.substring(
+          Math.max(0, lowerText.indexOf('service') - 20),
+          lowerText.indexOf('service') + 20
+        );
+        
+        if (serviceContext.includes('excellent') || serviceContext.includes('great')) {
+          positiveScore += 0.5;
+        } else if (serviceContext.includes('poor') || serviceContext.includes('terrible')) {
+          negativeScore += 0.5;
+        }
       }
       
       return {
@@ -593,7 +711,7 @@ export class SentimentAnalysisService {
         hasDiminisher
       };
     } catch (error) {
-      console.warn('Feature extraction failed:', error);
+      console.warn('Enhanced feature extraction failed:', error);
       return {
         positiveScore: 0.3,
         negativeScore: 0.3,
@@ -602,34 +720,6 @@ export class SentimentAnalysisService {
         hasIntensifier: false,
         hasDiminisher: false
       };
-    }
-  }
-
-  private analyzeSentenceStructure(sentence: string) {
-    try {
-      let positive = 0;
-      let negative = 0;
-      let neutral = 0;
-      
-      // Look for comparative structures
-      if (sentence.includes('better than') || sentence.includes('worse than')) {
-        if (sentence.includes('better than')) positive += 0.2;
-        if (sentence.includes('worse than')) negative += 0.2;
-      }
-      
-      // Look for conditional statements
-      if (sentence.includes('if') || sentence.includes('would')) {
-        neutral += 0.1; // Conditional statements are often more neutral
-      }
-      
-      // Look for questions
-      if (sentence.includes('?')) {
-        neutral += 0.1; // Questions are often neutral
-      }
-      
-      return { positive, negative, neutral };
-    } catch (error) {
-      return { positive: 0, negative: 0, neutral: 0 };
     }
   }
 
@@ -646,27 +736,17 @@ export class SentimentAnalysisService {
         'can', 'shall', 'not_', 'intensifier_', 'diminisher_'
       ]);
       
-      // Enhanced sentiment-specific keywords
+      // Enhanced sentiment-specific keywords using training data
       const sentimentKeywords = {
-        positive: [
-          'excellent', 'amazing', 'wonderful', 'fantastic', 'perfect', 'outstanding',
-          'brilliant', 'superb', 'magnificent', 'delightful', 'awesome', 'great',
-          'good', 'love', 'like', 'enjoy', 'happy', 'pleased', 'satisfied',
-          'impressive', 'remarkable', 'exceptional', 'marvelous', 'terrific',
-          'positive_emoji', 'love_emoji', 'positive_emoticon'
-        ],
-        negative: [
-          'terrible', 'awful', 'horrible', 'disgusting', 'disappointing', 'pathetic',
-          'atrocious', 'dreadful', 'appalling', 'abysmal', 'bad', 'hate', 'dislike',
-          'annoying', 'frustrating', 'useless', 'worthless', 'poor', 'worst',
-          'unacceptable', 'inadequate', 'inferior', 'defective', 'faulty',
-          'negative_emoji', 'anger_emoji', 'negative_emoticon'
-        ],
-        neutral: [
-          'okay', 'average', 'normal', 'standard', 'typical', 'regular',
-          'ordinary', 'common', 'usual', 'basic', 'moderate', 'fair',
-          'neutral_emoji', 'neutral_emoticon'
-        ]
+        positive: TRAINING_PATTERNS.positive.words.concat(
+          TRAINING_PATTERNS.positive.phrases.join(' ').split(' ')
+        ),
+        negative: TRAINING_PATTERNS.negative.words.concat(
+          TRAINING_PATTERNS.negative.phrases.join(' ').split(' ')
+        ),
+        neutral: TRAINING_PATTERNS.neutral.words.concat(
+          TRAINING_PATTERNS.neutral.phrases.join(' ').split(' ')
+        )
       };
       
       const relevantWords = words.filter(word => {
@@ -711,13 +791,20 @@ export class SentimentAnalysisService {
         // Score by length (longer words often more meaningful)
         score += Math.min(keyword.length / 10, 1);
         
+        // Bonus for training data patterns
+        const isTrainingPattern = Object.values(TRAINING_PATTERNS).some(pattern => 
+          pattern.words?.includes(keyword) || 
+          pattern.phrases?.some(phrase => phrase.includes(keyword))
+        );
+        if (isTrainingPattern) score += 2;
+        
         return { keyword, score };
       });
       
       // Return top keywords sorted by score
       return keywordScores
         .sort((a, b) => b.score - a.score)
-        .slice(0, 6)
+        .slice(0, 8)
         .map(item => item.keyword)
         .filter(keyword => !keyword.includes('_')); // Remove processed markers
     } catch (error) {
